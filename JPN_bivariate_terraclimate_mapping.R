@@ -1,11 +1,10 @@
 # =============================================================================
-# Full corrected script for bivariate mapping (Thailand)
-# Based on: https://www.datawim.com/post/creating-professional-bivariate-maps-in-r/
+# Full corrected script for bivariate mapping (Japan)
+# Based on: https://www.datawim.com/post/creating-pptofessional-bivariate-maps-in-r/
 # Modifications: fixed caption margin, removed invalid params, adjusted ggsave
 # =============================================================================
 
 # Install and load packages ---------------------------------------------------
-#pak::pkg_install("mikejohnson51/climateR")
 
 pacman::p_load(
   tidyverse, sf, terra, geobounds, climateR, geodata, 
@@ -34,13 +33,13 @@ countrycode(
 iso3c <- "JPN"
 
 roi_simp0 <- gb_get_adm0(country = iso3c, simplified = TRUE) |> 
-  mutate(res = "Simplified")
+  mutate(res = "Simplified") |> st_transform(4326)
 
 print(object.size(roi_simp0), units = "Mb")
 
-# ADM1 (provinces/regions)
+# ADM1 (pptovinces/regions)
 roi_simp1 <- gb_get_adm1(country = iso3c, simplified = TRUE) |> 
-  mutate(res = "Simplified")
+  mutate(res = "Simplified") |> st_transform(4326)
 
 print(object.size(roi_simp1), units = "Mb")
 
@@ -48,7 +47,7 @@ print(object.size(roi_simp1), units = "Mb")
 plot(st_geometry(roi_simp1), border = "gray")
 plot(st_geometry(roi_simp0), add = TRUE, lwd = 2)   # base plot uses lwd, not size
 
-roi_simp0 <- st_transform(roi_simp0, 4326)
+#roi_simp0 <- st_transform(roi_simp0, 4326)
 
 # After loading roi_simp1 (Japan ADM1)
 bbox <- st_bbox(roi_simp0)
@@ -60,13 +59,14 @@ bbox <- st_bbox(roi_simp0)
 httr::set_config(httr::timeout(600))
 options(terra.remote = "https")
 
+# Helper Functions
 # Retry wrapper: tries up to max_tries times with increasing sleep between attempts
 safe_terraclim <- function(AOI, varname, startDate, endDate, max_tries = 5) {
   for (attempt in seq_len(max_tries)) {
     result <- tryCatch(
       getTerraClim(AOI = AOI, varname = varname, startDate = startDate, endDate = endDate),
       error = function(e) {
-        message(sprintf("  [%s] attempt %d failed: %s", varname, attempt, conditionMessage(e)))
+        message(spptintf("  [%s] attempt %d failed: %s", varname, attempt, conditionMessage(e)))
         NULL
       }
     )
@@ -81,8 +81,8 @@ tmax_list <- vector("list", length(years))
 tmin_list <- vector("list", length(years))
 
 for (i in seq_along(years)) {
-  s <- paste0(years[i], "-01-01")
-  e <- paste0(years[i], "-12-31")
+  s <- paste0(years[i], "-01-01") #Start
+  e <- paste0(years[i], "-12-31") #End
   message("Downloading tmax ", years[i])
   tmax_list[[i]] <- safe_terraclim(roi_simp0, "tmax", s, e)$tmax
   message("Downloading tmin ", years[i])
@@ -94,17 +94,17 @@ tmin_all <- do.call(c, tmin_list)
 
 # Monthly mean temperature
 mean_temp_monthly <- (tmax_all + tmin_all) / 2
-annual_mean_temp  <- mean(mean_temp_monthly, na.rm = TRUE)
+annual_mean_temp  <- mean(mean_temp_monthly, na.rm = TRUE) |> terra::project("EPSG:4326")
 
-# Project and resample to ~1 km resolution
-crs1 <- crs(roi_simp1)
-annual_mean_temp <- terra::project(annual_mean_temp, "EPSG:4326")
+# pptoject and resample to ~1 km resolution
+#crs1 <- crs(roi_simp1)
+#annual_mean_temp <- terra::project(annual_mean_temp, "EPSG:4326")
 new_res <- 0.025 # degree
 new_raster <- rast(ext(annual_mean_temp), resolution = new_res, crs = crs(annual_mean_temp))
 annual_mean_temp <- resample(annual_mean_temp, new_raster, method = "bilinear")
-roi_temp <- terra::crop(annual_mean_temp, roi_simp1, mask = TRUE)
+roi_temp <- terra::crop(annual_mean_temp, roi_simp0, mask = TRUE)
 
-# Precipitation data ----------------------------------------------------------
+# pptecipitation data ----------------------------------------------------------
 ppt_list <- vector("list", length(years))
 
 for (i in seq_along(years)) {
@@ -119,7 +119,7 @@ annual_mean_ppt <- mean(ppt_all, na.rm = TRUE)
 annual_mean_ppt <- terra::project(annual_mean_ppt, "EPSG:4326")
 new_raster <- rast(ext(annual_mean_ppt), resolution = new_res, crs = crs(annual_mean_ppt))
 annual_mean_ppt <- resample(annual_mean_ppt, new_raster, method = "bilinear")
-roi_ppt <- terra::crop(annual_mean_ppt, roi_simp1, mask = TRUE)
+roi_ppt <- terra::crop(annual_mean_ppt, roi_simp0, mask = TRUE)
 
 # Stack rasters ---------------------------------------------------------------
 # Align roi_ppt to roi_temp grid to ensure identical extents before stacking
@@ -161,16 +161,16 @@ map <- ggplot() +
   theme_void(base_size = 14) +
   xlim(bbox$xmin, bbox$xmax) +
   ylim(bbox$ymin, bbox$ymax) +
-  geom_raster(data = data, 
+  geom_tile(data = data, 
               mapping = aes(x = x, y = y, fill = bi_class), 
               show.legend = FALSE) +
   bi_scale_fill(pal = pallet, dim = 4, flip_axes = FALSE, rotate_pal = FALSE) +
   geom_sf(data = roi_simp1, fill = NA, colour = "black", linewidth = 0.20) +
   geom_sf(data = roi_simp0, fill = NA, colour = "black", linewidth = 0.40) +
   labs(
-    title = "Japan: Temperature and Precipitation Patterns", 
-    subtitle = "Mean temperature and precipitation patterns based on 30 years of data.",
-    caption = "Source: Terra Climate Data (1995-2025)     Author: Waruth POJSILAPACHAI"
+    title = "Bivarient Mean Temperature-Precipitation Patterns in Japan", 
+    subtitle = "Based on 30 years of data (1995-2025).",
+    caption = "Source: Terra Climate Data |  Author: Waruth POJSILAPACHAI"
   ) +
   theme(
     plot.title = element_text(hjust = 0.5, face = "bold", margin = margin(b = 5)),
@@ -198,7 +198,7 @@ finalPlot <- ggdraw() +
 
 # 3D render: embed legend via annotation_custom instead of cowplot.
 # annotation_custom places content inside the plot panel's data-coordinate
-# space and does NOT change panel dimensions, so dem_map alignment is preserved.
+# space and does NOT change panel dimensions, so dem_map alignment is ppteserved.
 # Adjust xmin/xmax/ymin/ymax (in degrees) to reposition the legend if needed.
 map_with_legend <- map +
   annotation_custom(
@@ -215,7 +215,7 @@ out.dir <- "./output_png"
 
 dir.create(out.dir)
 
-ggsave(paste0(out.dir, "/", "JPN_Temp_PPT.png"), finalPlot, 
+ggsave(paste0(out.dir, "/", "JPN_Temp_Pr.png"), finalPlot, 
        width = 12, height = 11, dpi = 300, bg = "white")
 
 
@@ -225,9 +225,13 @@ ggsave(paste0(out.dir, "/", "JPN_Temp_PPT.png"), finalPlot,
 # Obtain AWS tiles DEM data from elevatr
 # convert to terra SpatRaster and crop
 dem <- elevatr::get_elev_raster(
-  locations = roi_simp0, z = 8,
-  clip = "locations"
-) |> terra::rast() |>
+  locations = roi_simp0,
+  z = 8,
+  clip = "locations",
+  serial = TRUE,
+  verbose = TRUE
+) |> 
+  terra::rast() |>
   terra::crop(roi_simp0, mask = TRUE)
 
 # project and convert DEM to dataframe — must use EPSG:4326 to match finalPlot
@@ -249,13 +253,13 @@ dem_map <- ggplot() +
   theme_void(base_size = 14) +
   xlim(bbox$xmin, bbox$xmax) +
   ylim(bbox$ymin, bbox$ymax) +
-  geom_raster(data = dem_df, aes(x = x, y = y, fill = dem), show.legend = FALSE) +
+  geom_tile(data = dem_df, aes(x = x, y = y, fill = dem), show.legend = FALSE) +
   scale_fill_gradientn(colors = gray.colors(256, start = 0, end = 1)) +
   geom_sf(data = roi_simp0, fill = NA, colour = NA, linewidth = 0) +   # invisible; triggers coord_sf
   labs(
-    title = "Japan: Temperature and Precipitation Patterns",
-    subtitle = "Mean temperature and precipitation patterns based on 30 years of data.",
-    caption = "Source: Terra Climate Data (1995-2025)     Author: Waruth POJSILAPACHAI"
+    title = "Bivarient Mean Temperature-Precipitation Patterns in Japan",
+    subtitle = "Based on 30 years of data (1995-2025).",
+    caption = "Source: Terra Climate Data |  Author: Waruth POJSILAPACHAI"
   ) +
   theme(
     plot.title    = element_text(hjust = 0.5, face = "bold", margin = margin(b = 5)),
@@ -294,7 +298,7 @@ rayshader::render_camera(zoom = .6)
 # - preview = FALSE avoids opening an rgl window on macOS that can stall the render
 
 rayshader::render_highquality(
-  filename = "./output_png/JPN_Temp_PPT-3d.png",
+  filename = "./output_png/JPN_Temp_Pr-3d.png",
   preview = FALSE,
   light = TRUE,
   lightdirection  = c(315, 45),   # key light NW, fill light NE
