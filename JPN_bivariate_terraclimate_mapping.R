@@ -168,7 +168,7 @@ map <- ggplot() +
   geom_sf(data = roi_simp1, fill = NA, colour = "black", linewidth = 0.20) +
   geom_sf(data = roi_simp0, fill = NA, colour = "black", linewidth = 0.40) +
   labs(
-    title = "Bivarient Mean Temperature-Precipitation Patterns in Japan", 
+    title = "Bivariate Mean Temperature-Precipitation Patterns in Japan", 
     subtitle = "Based on 30 years of data (1995-2025).",
     caption = "Source: Terra Climate Data |  Author: Waruth POJSILAPACHAI"
   ) +
@@ -257,7 +257,7 @@ dem_map <- ggplot() +
   scale_fill_gradientn(colors = gray.colors(256, start = 0, end = 1)) +
   geom_sf(data = roi_simp0, fill = NA, colour = NA, linewidth = 0) +   # invisible; triggers coord_sf
   labs(
-    title = "Bivarient Mean Temperature-Precipitation Patterns in Japan",
+    title = "Bivariate Mean Temperature-Precipitation Patterns in Japan",
     subtitle = "Based on 30 years of data (1995-2025).",
     caption = "Source: Terra Climate Data |  Author: Waruth POJSILAPACHAI"
   ) +
